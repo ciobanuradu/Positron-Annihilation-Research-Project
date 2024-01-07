@@ -32,7 +32,6 @@ plt.show()
 # convolution
 
 slit_angle = WIDTH / RADIUS # small angle approximation -> sin(x) ~= x
-print(slit_angle)
 
 # normalized block function from -angle to angle
 
@@ -42,25 +41,44 @@ def block_function(x: float):
     else:
         return 0
 
+
+# x = dataset.iloc[:, 1].to_numpy()
+# print("sum of block function: ", np.sum(block_function(x) * (x[1] - x[0])))
+
 #convolute function with itself:
-x = np.linspace(-1.7, 1.7, 5000)
+x = dataset.iloc[:, 1].to_numpy()
 triangle_function = np.convolve([block_function(x) for x in x], [block_function(x) for x in x], mode="same")
 
+# normalize triangle function
+dx = (np.abs(dataset.iloc[:, 1].to_numpy()[-1] - dataset.iloc[:, 1].to_numpy()[0])) / len(dataset.iloc[:, 1].to_numpy())
+normalization_factor = np.sum(triangle_function) * dx
+triangle_function_normed = triangle_function / normalization_factor 
+
+# triangle_function_normed = triangle_function_normed * 0.1
+plt.plot(dataset.iloc[:, 1].to_numpy(), triangle_function_normed)
+plt.show()
+
+
+#check if triangle is normalized
+print("sum of triangle function: ", np.sum(triangle_function_normed * (x[1] - x[0])))
 
 # fit function
 
 def gaussian_part(x, sigma, mean): 
     return (1/(sigma * np.sqrt(2 * np.pi))) * np.exp(-((x - mean) / sigma)**2 / 2) 
 
-def quadratic_part(x, p_f):
-    return np.maximum(0.0, (p_f**2 - x**2) * (3 / (4 * p_f ** 3)))
+def quadratic_part(x, p_f, mean):
+    return np.maximum(0.0, (p_f**2 - (x)**2) * (3 / (4 * p_f ** 3)))
 
 def fit_function(x, mean, sigma, p_f, weight):
-    return weight * gaussian_part(x, sigma, mean) + (1- weight) * quadratic_part(x, p_f)
+    return weight * gaussian_part(x, sigma, mean) + (1- weight) * quadratic_part(x, p_f, mean)
+
+def fit_function_2(x, mean, sigma, p_f, weight):
+    res = np.convolve(triangle_function_normed, weight * gaussian_part(x, sigma, mean) + (1- weight) * quadratic_part(x, p_f, mean), mode='same')
+    return res / (np.sum(res) * dx)
 
 
-
-np.convolve([triangle_function(x) for x in x], [fit_function(x) for x in x], mode="same")
+# convolved_fit_function = np.convolve(triangle_function, [fit_function(x) for x in x], mode="same")
 
 
 # dataset normalization
@@ -82,17 +100,23 @@ print("normalization factor: ", normalization_factor)
 # filter_function = triangle_function[triangle_function>0]
 # deconvoluted_dataset, _ = np.deconvolve(normalized_dataset.iloc[:, 2], filter_function, mode="same")[1]  
     
-# shift dataset so that mean position is 0
+# mean position
 mean_position = np.sum(normalized_dataset.iloc[:, 1] * normalized_dataset.iloc[:, 2]) * bin_width
 print("mean position: ", mean_position)
+
 # standard deviation
 standard_deviation = np.sqrt(np.sum(normalized_dataset.iloc[:, 2] * (normalized_dataset.iloc[:, 1] - mean_position)**2) * bin_width)
 print("standard deviation: ", standard_deviation)
 
+# shift dataset so that mean position is 0
 # normalized_dataset.iloc[:, 1] = normalized_dataset.iloc[:, 1] - mean_position
 
 
-popt, cov = scipy.optimize.curve_fit(fit_function, normalized_dataset.iloc[:, 1], normalized_dataset.iloc[:, 2], bounds = ([-0.04, 0.01, -5, 0], [0.04, 5, 5, 1]), p0=[0, 1, 0.5, 0.5])
+popt, cov = scipy.optimize.curve_fit(fit_function_2, 
+        normalized_dataset.iloc[:, 1], 
+        normalized_dataset.iloc[:, 2], 
+        bounds = ([-0.04, 0.001, 0, 0], [0.04, 0.5, 0.05, 1]), 
+        p0=[0, 0.04, 0.01, 0.5])
 
 #print popts with labels
 print("mean: ", popt[0])
@@ -102,13 +126,18 @@ print("weight: ", popt[3])
 
 # popt[0] = 0
 
+plt.plot(x, fit_function_2(x, *popt), "-y")
 plt.plot(x, fit_function(x, *popt), "-r")
 plt.plot(x, gaussian_part(x, popt[1], popt[0]), "--b")
-plt.plot(x, quadratic_part(x, popt[2]), "--g")
+plt.plot(x, quadratic_part(x, popt[2], popt[0]), "--g")
 plt.plot(normalized_dataset.iloc[:, 1], normalized_dataset.iloc[:, 2], ".k")
 plt.show()
 
 # second convolution
+
+plt.plot(x, fit_function_2(x, *popt), "-y")
+plt.plot(normalized_dataset.iloc[:, 1], normalized_dataset.iloc[:, 2], ".k")
+plt.show()
 
 convoluted_function = np.convolve(triangle_function, fit_function(x,*popt), mode="same")
 plt.plot(x, convoluted_function, ".k")
@@ -126,4 +155,4 @@ fermi_angle = popt[2]
 
 # processing momentum into energy
 
-fermi_energy = fermi_momentum ** 2 / (2 * ELECTRON_MASS)
+# fermi_energy = fermi_momentum ** 2 / (2 * ELECTRON_MASS)
