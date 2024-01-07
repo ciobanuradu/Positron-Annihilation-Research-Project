@@ -62,6 +62,7 @@ plt.show()
 #check if triangle is normalized
 print("sum of triangle function: ", np.sum(triangle_function_normed * (x[1] - x[0])))
 
+
 # fit function
 
 def gaussian_part(x, sigma, mean): 
@@ -73,6 +74,7 @@ def quadratic_part(x, p_f, mean):
 def fit_function(x, mean, sigma, p_f, weight):
     return weight * gaussian_part(x, sigma, mean) + (1- weight) * quadratic_part(x, p_f, mean)
 
+# use this one
 def fit_function_2(x, mean, sigma, p_f, weight):
     res = np.convolve(triangle_function_normed, weight * gaussian_part(x, sigma, mean) + (1- weight) * quadratic_part(x, p_f, mean), mode='same')
     return res / (np.sum(res) * dx)
@@ -93,30 +95,38 @@ print("total count: ", total_count)
 print("bin width: ", bin_width)
 print("normalization factor: ", normalization_factor)
 
+
 # reality check
 # print("sum of normalized counts: ", np.sum(normalized_dataset.iloc[:, 2]) * bin_width)
+
 
 # deconvolve triangle function
 # filter_function = triangle_function[triangle_function>0]
 # deconvoluted_dataset, _ = np.deconvolve(normalized_dataset.iloc[:, 2], filter_function, mode="same")[1]  
     
+
 # mean position
 mean_position = np.sum(normalized_dataset.iloc[:, 1] * normalized_dataset.iloc[:, 2]) * bin_width
 print("mean position: ", mean_position)
+
 
 # standard deviation
 standard_deviation = np.sqrt(np.sum(normalized_dataset.iloc[:, 2] * (normalized_dataset.iloc[:, 1] - mean_position)**2) * bin_width)
 print("standard deviation: ", standard_deviation)
 
+
 # shift dataset so that mean position is 0
 # normalized_dataset.iloc[:, 1] = normalized_dataset.iloc[:, 1] - mean_position
 
+
+# fit curve
 
 popt, cov = scipy.optimize.curve_fit(fit_function_2, 
         normalized_dataset.iloc[:, 1], 
         normalized_dataset.iloc[:, 2], 
         bounds = ([-0.04, 0.001, 0, 0], [0.04, 0.5, 0.05, 1]), 
         p0=[0, 0.04, 0.01, 0.5])
+
 
 #print popts with labels
 print("mean: ", popt[0])
@@ -133,9 +143,14 @@ plt.plot(x, quadratic_part(x, popt[2], popt[0]), "--g")
 plt.plot(normalized_dataset.iloc[:, 1], normalized_dataset.iloc[:, 2], ".k")
 plt.show()
 
-# second convolution
 
-plt.plot(x, fit_function_2(x, *popt), "-y")
+# convolution plots
+
+normalized_convoluted_quadratic = np.convolve(triangle_function_normed, quadratic_part(x, popt[2], popt[0]), mode="same")
+normalized_convoluted_quadratic = normalized_convoluted_quadratic / (np.sum(normalized_convoluted_quadratic) * dx)
+plt.plot(x, normalized_convoluted_quadratic, "--g")
+
+plt.plot(x, fit_function_2(x, *popt), "-r")
 plt.plot(normalized_dataset.iloc[:, 1], normalized_dataset.iloc[:, 2], ".k")
 plt.show()
 
@@ -144,15 +159,25 @@ plt.plot(x, convoluted_function, ".k")
 plt.show()
 
 
-# fitting curve
-
-# plotting
-
-# processing fit angle into momentum
+# processing fit angle into momentum and energy
 
 fermi_angle = popt[2]
-# fermi_momentum = 
+#E = MC^2 
+p_paralel = np.sqrt(2 * ELECTRON_MASS * ELECTRON_MASS) #(i think?) MeV / c
+p_perp = np.tan(fermi_angle) * p_paralel 
+fermi_energy = (p_perp ** 2) + (p_paralel ** 2) / (2 * ELECTRON_MASS)
 
-# processing momentum into energy
-
-# fermi_energy = fermi_momentum ** 2 / (2 * ELECTRON_MASS)
+# uncertainty in energy
+fermi_angle_uncertainty = np.sqrt(cov[2, 2])
+print("fermi angle uncertainty: ", fermi_angle_uncertainty)
+print("fermi angle: ", fermi_angle)
+p_paralel_uncertainty = np.sqrt(cov[2, 2]) * p_paralel / np.sqrt(fermi_angle)
+print("p paralel uncertainty: ", p_paralel_uncertainty)
+print("p perp: ", p_perp)
+p_perp_uncertainty = np.sqrt(cov[2, 2]) * p_perp / np.sqrt(fermi_angle)
+print("p perp uncertainty: ", p_perp_uncertainty)
+print("p paralel: ", p_paralel)
+fermi_energy_uncertainty = np.sqrt(cov[2, 2]) * fermi_energy / np.sqrt(fermi_angle)
+print("fermi energy uncertainty: ", fermi_energy_uncertainty)
+print("fermi energy: ", fermi_energy)
+print("energy delta:", fermi_energy - ELECTRON_MASS)
