@@ -9,7 +9,7 @@ import pandas as pd
 
 WIDTH = 2 #mm
 RADIUS = 600 #mm
-ELECTRON_MASS = 0.511 #MeV
+ELECTRON_MASS = 511 #keV
 
 # reading data
 
@@ -71,11 +71,14 @@ def gaussian_part(x, sigma, mean):
 def quadratic_part(x, p_f, mean):
     return np.maximum(0.0, (p_f**2 - (x)**2) * (3 / (4 * p_f ** 3)))
 
-def fit_function(x, mean, sigma, p_f, weight):
+
+def fit_function(x, mean, sigma, p_f, weight, bias):
+    x = x - bias
     return weight * gaussian_part(x, sigma, mean) + (1- weight) * quadratic_part(x, p_f, mean)
 
 # use this one
-def fit_function_2(x, mean, sigma, p_f, weight):
+def fit_function_2(x, mean, sigma, p_f, weight, bias):
+    x = x - bias
     res = np.convolve(triangle_function_normed, weight * gaussian_part(x, sigma, mean) + (1- weight) * quadratic_part(x, p_f, mean), mode='same')
     return res / (np.sum(res) * dx)
 
@@ -124,8 +127,8 @@ print("standard deviation: ", standard_deviation)
 popt, cov = scipy.optimize.curve_fit(fit_function_2, 
         normalized_dataset.iloc[:, 1], 
         normalized_dataset.iloc[:, 2], 
-        bounds = ([-0.04, 0.001, 0, 0], [0.04, 0.5, 0.05, 1]), 
-        p0=[0, 0.04, 0.01, 0.5])
+        bounds = ([-0.04, 0.001, 0, 0, -0.1], [0.04, 0.5, 0.05, 1, 0.1]), 
+        p0=[0, 0.04, 0.01, 0.5, 0])
 
 
 #print popts with labels
@@ -133,6 +136,7 @@ print("mean: ", popt[0])
 print("sigma: ", popt[1])
 print("p_f: ", popt[2])
 print("weight: ", popt[3])
+print("bias: ", popt[4])
 
 # popt[0] = 0
 
@@ -146,9 +150,13 @@ plt.show()
 
 # convolution plots
 
-normalized_convoluted_quadratic = np.convolve(triangle_function_normed, quadratic_part(x, popt[2], popt[0]), mode="same")
+normalized_convoluted_quadratic = np.convolve(triangle_function_normed, quadratic_part(x - popt[4], popt[2], popt[0]), mode="same")
 normalized_convoluted_quadratic = normalized_convoluted_quadratic / (np.sum(normalized_convoluted_quadratic) * dx)
 plt.plot(x, normalized_convoluted_quadratic, "--g")
+
+normalized_convoluted_gaussian = np.convolve(triangle_function_normed, gaussian_part(x - popt[4], popt[1], popt[0]), mode="same")
+normalized_convoluted_gaussian = normalized_convoluted_gaussian / (np.sum(normalized_convoluted_gaussian) * dx)
+plt.plot(x, normalized_convoluted_gaussian, "--b")
 
 plt.plot(x, fit_function_2(x, *popt), "-r")
 plt.plot(normalized_dataset.iloc[:, 1], normalized_dataset.iloc[:, 2], ".k")
@@ -162,22 +170,16 @@ plt.show()
 # processing fit angle into momentum and energy
 
 fermi_angle = popt[2]
-#E = MC^2 
-p_paralel = np.sqrt(2 * ELECTRON_MASS * ELECTRON_MASS) #(i think?) MeV / c
-p_perp = np.tan(fermi_angle) * p_paralel 
-fermi_energy = (p_perp ** 2) + (p_paralel ** 2) / (2 * ELECTRON_MASS)
+#fermi_energy = p_fermi**2 / (2 * ELECTRON_MASS) # MeV 
+
+fermi_energy = fermi_angle ** 2 * ELECTRON_MASS / 2 # MeV
 
 # uncertainty in energy
 fermi_angle_uncertainty = np.sqrt(cov[2, 2])
+fermi_energy_uncertainty = np.sin(fermi_angle * 2) * ELECTRON_MASS / 2 * fermi_angle_uncertainty 
+
 print("fermi angle uncertainty: ", fermi_angle_uncertainty)
 print("fermi angle: ", fermi_angle)
-p_paralel_uncertainty = np.sqrt(cov[2, 2]) * p_paralel / np.sqrt(fermi_angle)
-print("p paralel uncertainty: ", p_paralel_uncertainty)
-print("p perp: ", p_perp)
-p_perp_uncertainty = np.sqrt(cov[2, 2]) * p_perp / np.sqrt(fermi_angle)
-print("p perp uncertainty: ", p_perp_uncertainty)
-print("p paralel: ", p_paralel)
-fermi_energy_uncertainty = np.sqrt(cov[2, 2]) * fermi_energy / np.sqrt(fermi_angle)
-print("fermi energy uncertainty: ", fermi_energy_uncertainty)
-print("fermi energy: ", fermi_energy)
-print("energy delta:", fermi_energy - ELECTRON_MASS)
+
+print("fermi energy uncertainty: ", fermi_energy_uncertainty * 1000, " eV")
+print("fermi energy: ", fermi_energy * 1000, " eV")
