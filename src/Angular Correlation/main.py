@@ -183,3 +183,37 @@ print("fermi angle: ", fermi_angle)
 
 print("fermi energy uncertainty: ", fermi_energy_uncertainty * 1000, " eV")
 print("fermi energy: ", fermi_energy * 1000, " eV")
+
+#plot farming
+
+plt.plot(x, [block_function(x) for x in x], "-k")
+plt.title("Detector response function")
+plt.xlabel("Angle (rad)")
+plt.show()
+
+plt.plot(x, triangle_function_normed, "-k")
+plt.title("Final response function")
+plt.xlabel("Angle (rad)")
+plt.show()
+
+plt.plot(x, gaussian_part(x, popt[1], popt[0]), "--b", label="Gaussian part")
+plt.plot(x, quadratic_part(x-popt[0], popt[2], 0), "--r", label="Quadratic part")
+plt.plot(x, fit_function(x - popt[0], 0, popt[1], popt[2], 0.333, 0), "-k", label="Theoretical distribution")
+plt.title("Theoretical probability distribution")
+plt.legend()
+plt.xlabel("Angle (rad)")
+plt.show()
+
+#plot of theoretical function fit onto dataset
+plt.plot(x, normalized_dataset.iloc[:, 2], ".k")
+plt.plot(x, fit_function(x, *popt), "-b")
+plt.title("Theoretical fit")
+plt.xlabel("Angle (rad)")
+plt.show()
+
+#plot of convoluted theoretical function fit onto dataset
+plt.plot(x, normalized_dataset.iloc[:, 2], ".k")
+plt.plot(x, fit_function_2(x, *popt), "-b")
+plt.title("Fit of distribution convolved with detector response function")
+plt.xlabel("Angle (rad)")
+plt.show()
