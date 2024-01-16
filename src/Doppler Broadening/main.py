@@ -138,7 +138,7 @@ plt.show()
 # compensate for error
 AnnihilationFWHM = np.sqrt(NA_FWHM_1[1] ** 2 - error(NA_FWHM_1[0], *popt) ** 2)
 print("AnnihilationFWHM: ", AnnihilationFWHM, " KeV")
-momentum = 2 * AnnihilationFWHM # KeV/c
+momentum = AnnihilationFWHM # KeV/c
 print("momentum: ", momentum, " KeV/c")
 fermi_energy = momentum ** 2 / (2 * 511) # KeV
 print("fermi_energy: ", fermi_energy * 1000, " eV")

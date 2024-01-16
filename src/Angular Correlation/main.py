@@ -9,7 +9,7 @@ import pandas as pd
 
 WIDTH = 2 #mm
 RADIUS = 600 #mm
-ELECTRON_MASS = 511 #keV
+ELECTRON_MASS = 510.99 #keV
 
 # reading data
 
@@ -23,15 +23,9 @@ dataset = dataset.iloc[:, :-1]
 
 dataset.iloc[:, 1] = dataset.iloc[:, 1] * np.pi / 180 
 
-# plot dataset
-
-#plt.hist(dataset.iloc[:, 1], range=(-0.05, 0.05), bins=50)
-plt.plot(dataset.iloc[:, 1], dataset.iloc[:, 2], ".k")
-plt.show()
-
 # convolution
 
-slit_angle = WIDTH / RADIUS # small angle approximation -> sin(x) ~= x
+slit_angle = WIDTH / ( 2 * RADIUS) # small angle approximation -> sin(x) ~= x
 
 # normalized block function from -angle to angle
 
@@ -51,13 +45,8 @@ triangle_function = np.convolve([block_function(x) for x in x], [block_function(
 
 # normalize triangle function
 dx = (np.abs(dataset.iloc[:, 1].to_numpy()[-1] - dataset.iloc[:, 1].to_numpy()[0])) / len(dataset.iloc[:, 1].to_numpy())
-normalization_factor = np.sum(triangle_function) * dx
+normalization_factor = max(triangle_function) / 300 # np.sum(triangle_function) * dx
 triangle_function_normed = triangle_function / normalization_factor 
-
-# triangle_function_normed = triangle_function_normed * 0.1
-plt.plot(dataset.iloc[:, 1].to_numpy(), triangle_function_normed)
-plt.show()
-
 
 #check if triangle is normalized
 print("sum of triangle function: ", np.sum(triangle_function_normed * (x[1] - x[0])))
@@ -72,14 +61,14 @@ def quadratic_part(x, p_f, mean):
     return np.maximum(0.0, (p_f**2 - (x)**2) * (3 / (4 * p_f ** 3)))
 
 
-def fit_function(x, mean, sigma, p_f, weight, bias):
+def fit_function(x, mean, sigma, p_f, weight, bias, background):
     x = x - bias
-    return weight * gaussian_part(x, sigma, mean) + (1- weight) * quadratic_part(x, p_f, mean)
+    return weight * gaussian_part(x, sigma, mean) + (1- weight) * quadratic_part(x, p_f, mean) + background
 
 # use this one
-def fit_function_2(x, mean, sigma, p_f, weight, bias):
+def fit_function_2(x, mean, sigma, p_f, weight, bias, background):
     x = x - bias
-    res = np.convolve(triangle_function_normed, weight * gaussian_part(x, sigma, mean) + (1- weight) * quadratic_part(x, p_f, mean), mode='same')
+    res = np.convolve(triangle_function_normed, weight * gaussian_part(x, sigma, mean) + (1- weight) * quadratic_part(x, p_f, mean), mode='same') + background
     return res / (np.sum(res) * dx)
 
 
@@ -127,8 +116,8 @@ print("standard deviation: ", standard_deviation)
 popt, cov = scipy.optimize.curve_fit(fit_function_2, 
         normalized_dataset.iloc[:, 1], 
         normalized_dataset.iloc[:, 2], 
-        bounds = ([-0.04, 0.001, 0, 0, -0.1], [0.04, 0.5, 0.05, 1, 0.1]), 
-        p0=[0, 0.04, 0.01, 0.5, 0])
+        bounds = ([-0.04, 0.001, 0, 0, -0.1, 0], [0.04, 0.5, 0.05, 1, 0.1, 20]), 
+        p0=[0, 0.04, 0.01, 0.5, 0, 0])
 
 
 #print popts with labels
@@ -137,6 +126,7 @@ print("sigma: ", popt[1])
 print("p_f: ", popt[2])
 print("weight: ", popt[3])
 print("bias: ", popt[4])
+print("background: ", popt[5])
 
 # popt[0] = 0
 
@@ -144,6 +134,7 @@ plt.plot(x, fit_function_2(x, *popt), "-y")
 plt.plot(x, fit_function(x, *popt), "-r")
 plt.plot(x, gaussian_part(x, popt[1], popt[0]), "--b")
 plt.plot(x, quadratic_part(x, popt[2], popt[0]), "--g")
+plt.plot(x, [popt[5] for i in x], "--m")
 plt.plot(normalized_dataset.iloc[:, 1], normalized_dataset.iloc[:, 2], ".k")
 plt.show()
 
@@ -161,11 +152,6 @@ plt.plot(x, normalized_convoluted_gaussian, "--b")
 plt.plot(x, fit_function_2(x, *popt), "-r")
 plt.plot(normalized_dataset.iloc[:, 1], normalized_dataset.iloc[:, 2], ".k")
 plt.show()
-
-convoluted_function = np.convolve(triangle_function, fit_function(x,*popt), mode="same")
-plt.plot(x, convoluted_function, ".k")
-plt.show()
-
 
 # processing fit angle into momentum and energy
 
@@ -198,7 +184,7 @@ plt.show()
 
 plt.plot(x, gaussian_part(x, popt[1], popt[0]), "--b", label="Gaussian part")
 plt.plot(x, quadratic_part(x-popt[0], popt[2], 0), "--r", label="Quadratic part")
-plt.plot(x, fit_function(x - popt[0], 0, popt[1], popt[2], 0.333, 0), "-k", label="Theoretical distribution")
+plt.plot(x, fit_function(x - popt[0], 0, popt[1], popt[2], 0.333, 0, 0), "-k", label="Theoretical distribution")
 plt.title("Theoretical probability distribution")
 plt.legend()
 plt.xlabel("Angle (rad)")
