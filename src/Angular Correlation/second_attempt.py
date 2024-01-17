@@ -65,7 +65,9 @@ dx = (np.abs(dataset[-1, 1] - dataset[0, 1])) / len(dataset[:, 1])
 
 def fit_function(x, sigma, p_f, weight, bias, background):
     x = x - bias
-    res = np.convolve(triangle_function, weight * gaussian_part(x, sigma) + (1- weight) * quadratic_part(x, p_f), mode='same') + background
+    res = np.convolve(triangle_function, weight * gaussian_part(x, sigma) + (1- weight) * quadratic_part(x, p_f), mode='same') 
+    res =  res / (np.sum(res) * dx)
+    res += background
     return res / (np.sum(res) * dx)
 
 popt, cov = scipy.optimize.curve_fit(fit_function, 
@@ -77,7 +79,12 @@ popt, cov = scipy.optimize.curve_fit(fit_function,
 fitted_dataset = fit_function(normalized_dataset[:, 1], *popt)
 
 plt.plot(normalized_dataset[:, 1], normalized_dataset[:, 2], ".k")
-plt.plot(normalized_dataset[:, 1], fit_function(normalized_dataset[:, 1], *popt), "b")
+plt.plot(normalized_dataset[:, 1], fit_function(normalized_dataset[:, 1], *popt), "r", label="full fit function")
+plt.plot(x, quadratic_part(x - popt[3], popt[1]), "--b", label="quadratic part")
+plt.xlabel("angle [rad]")
+plt.ylabel("counts (normalized)")
+plt.title("final fit for angle correlation")
+plt.legend()
 plt.show()
 
 print("sigma: ", popt[0], " p_f: ", popt[1], " weight: ", popt[2], " bias: ", popt[3], " background: ", popt[4])
